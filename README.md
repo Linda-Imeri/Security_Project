@@ -32,7 +32,7 @@ This project offers the ability to encrypt and decrypt data through three comman
 
 4. Create-user
 
-      Creates a public / private RSA pair with the names <name> .xml and <name> .pub.xml within the key directory.
+      Creates a public / private RSA pair with the names <name> .pem and <name> .pub.pem within the keys directory.
       
 5. Delete-user      
       
@@ -114,9 +114,9 @@ This project offers the ability to encrypt and decrypt data through three comman
    
 Create-user, delete-user, write-message, read-message
 
-![](images/cmd1.png)
+![](images/cmd1.PNG)
 
 import-key and export-key
 
-![](images/cmd2.png)
+![](images/cmd2.PNG)
 
