@@ -5,6 +5,13 @@ This project offers the ability to encrypt and decrypt data through three comman
 2. Permutation Command
 3. Numerical Command
 
+4. Create-user
+5. Delete-user
+6. Import-key
+7. Export-key
+
+8. Write-message
+9. Read-message
 
 # Description of commands
 
@@ -22,6 +29,30 @@ This project offers the ability to encrypt and decrypt data through three comman
 
       With this command each letter is replaced with its alphabetical position. 
       Thus letter "a" is encoded subdomain1, letter "b" subdomain2,    etc.
+
+4. Create-user
+
+      Creates a public / private RSA pair with the names <name> .xml and <name> .pub.xml within the key directory.
+      
+5. Delete-user      
+      
+      Removes all existing user keys.
+      
+6. Import-key
+
+      Exports the user's public or private key from the key directory.
+      
+7. Export-key
+
+      Imports the user's public or private key from the given path and places it in the key directory.
+      
+8. Write-message
+
+      Writes an encrypted message dedicated to a user.
+      
+9. Read-message
+      
+      Decrypts and displays the encrypted message in the console.
 
 
 # Instructions for using the program
@@ -76,9 +107,16 @@ This project offers the ability to encrypt and decrypt data through three comman
   Numerical Separator
   
    ![](images/NumericalSeparator.png)
-
-
    
+   
+   
+  RSA algoritem 
+   
+Create-user, delete-user, write-message, read-message
 
+![](images/cmd1.png)
 
+import-key and export-key
+
+![](images/cmd2.png)
 
