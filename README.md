@@ -114,9 +114,9 @@ This project offers the ability to encrypt and decrypt data through three comman
    
 Create-user, delete-user, write-message, read-message
 
-![](images/cmd1.png)
+![](images/cmd1.PNG)
 
 import-key and export-key
 
-![](images/cmd2.png)
+![](images/cmd2.PNG)
 
