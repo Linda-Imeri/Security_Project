@@ -14,7 +14,6 @@ public class ds {
 				break;
 			}
 
-			//Faza e dyte
 
 
 			case "create-user":{
@@ -75,8 +74,29 @@ public class ds {
 				}
 				break;
 			}
+			
+			case "login":{
+				try {
+					Keys.login(args[1]);
+					output="";
+				}
 
+				catch (IndexOutOfBoundsException e) {
+					System.out.println("Arguments are missing,try again ");
+				}
+				break;
+			}
+			case "status":{
+				try {
+					
+					output="";
+				}
 
+				catch (IndexOutOfBoundsException e) {
+					System.out.println("Arguments are missing,try again ");
+				}
+				break;
+			}
 			case "write-message":{
 				try {
 					if(args.length==4) {
