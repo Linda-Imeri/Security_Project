@@ -88,7 +88,7 @@ public class ds {
 			}
 			case "status":{
 				try {
-					
+					Keys.status(args[1]);
 					output="";
 				}
 
@@ -100,11 +100,24 @@ public class ds {
 			case "write-message":{
 				try {
 					if(args.length==4) {
-						Keys.encrypt(args[1],args[2],args[3]);
+						//Save in file specified
+						Keys.encrypt(args[1],args[2],args[3], "");
 						output="";
 					}
+					else if(args.length==5) {
+						//Sender specified
+						if(args[3].equalsIgnoreCase("--sender")) {
+							Keys.encrypt(args[1],args[2],args[4]);
+						}
+					}
+					else if(args.length==6) {
+						//Save in file and sender specified
+						if(args[4].equalsIgnoreCase("--sender")) {
+							Keys.encrypt(args[1],args[2],args[3], args[5]);
+						}
+					}
 					else {
-						Keys.encrypt(args[1],args[2]);
+						Keys.encrypt(args[1],args[2], "");
 						output="";  }
 				}
 				catch (IndexOutOfBoundsException e) {

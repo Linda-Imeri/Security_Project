@@ -60,7 +60,6 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
@@ -68,11 +67,9 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
-import io.jsonwebtoken.JwtBuilder;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-
 import java.security.Signature;
+import java.security.SignatureException;
+
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Date;
 
@@ -101,32 +98,11 @@ public class Keys {
 		return null;
 	}
 	
-	public static String createJWT2(String id, String issuer, String subject, long ttlMillis) {
+	public static String createJWT(String issuer, long ttlMillis) {
 		  
-	    long nowMillis = System.currentTimeMillis();
-	    Date now = new Date(nowMillis);
-	    
-	    PrivateKey privateKey = importPrivateKey("donat");
+	    long nowMillis = System.currentTimeMillis();	    
+	    PrivateKey privateKey = importPrivateKey(issuer);
 
-	    //Let's set the JWT Claims
-	    String token = Jwts.builder().setId(id)
-	            .setIssuedAt(now)
-	            .setSubject(subject)
-	            .setIssuer(issuer)
-	            .setExpiration(new Date(nowMillis + ttlMillis))
-	            .signWith(SignatureAlgorithm.RS256, privateKey)
-	            .compact();
-	    return token;
-	}
-	
-	public static String createJWT(String id, String issuer, String subject, long ttlMillis) {
-		  
-	    long nowMillis = System.currentTimeMillis();
-	    Date now = new Date(nowMillis);
-	    
-	    PrivateKey privateKey = importPrivateKey("donat");
-
-	    //Let's set the JWT Claims
 	    String token = JWT.create()
 	            .withIssuer(issuer)
 	            .withExpiresAt(new Date(nowMillis + ttlMillis))
@@ -134,32 +110,26 @@ public class Keys {
 	    return token;
 	}
 	
-	public static boolean verifyJWT(String token) {
-		try {
-			long nowMillis = System.currentTimeMillis();
-		    Date now = new Date(nowMillis);
-		    
-		    PublicKey publicKey = importPublicKey("donat");
+	public static boolean verifyJWT(String token, String issuer) {
+		try {		    
+		    PublicKey publicKey = importPublicKey(issuer);
 	
 		    Algorithm algorithm = Algorithm.RSA256((RSAKey) publicKey);
 		    JWTVerifier verifier = JWT.require(algorithm)
-		        .withIssuer("auth0")
+		        .withIssuer(issuer)
 		        .build(); //Reusable verifier instance
 		    DecodedJWT jwt = verifier.verify(token);
-		    System.out.println(jwt.toString());
+		    return true;
 		}catch (JWTVerificationException exception){
-		    //Invalid signature/claims
+		    return false;
 		}
-	    return true;
 	}
 	
 	public static boolean authenticate(String user, String password) {
 		try {
 			Connection conn = getConnection();
 			Statement myStmt=conn.createStatement();
-			
-
-			
+						
 			String getSaltQuery = "select Salt from userat where Emri='"+user+"';";
 			ResultSet saltSet = myStmt.executeQuery(getSaltQuery);
 			String salt = "";
@@ -175,8 +145,10 @@ public class Keys {
 			String authenticateQuery="select * from userat where Emri='"+user+"' AND Password='"+Hashedpassword+"';";
 			ResultSet userSet = myStmt.executeQuery(authenticateQuery);
 			if(userSet.next()) {
-				String emri = userSet.getString("Emri");
-				System.out.println(createJWT("01","linda","none",10000));
+				String token = createJWT(user,120000);
+				String updateQuery="update userat set Token = '"+token+"' where Emri='"+user+"' AND Password='"+Hashedpassword+"';";
+				myStmt.executeUpdate(updateQuery);
+				System.out.println("Token: " + token);
 				conn.close();
 				return true;
 			}
@@ -196,7 +168,7 @@ public class Keys {
 	}
 	
 	
-	public static void encrypt(String name, String message ) {
+	public static void encrypt(String name, String message, String token) {
 		byte[] iv = generateRandom();
 		SecretKey desKey = generateDESKey();
 
@@ -215,16 +187,34 @@ public class Keys {
 
 				byte[] encryptedMessage = encryptMessage(message, desKey);
 				String encodedMessage = encoder.encodeToString(encryptedMessage);
-
-				String ciphertext = encodedName +"."+encodedIV+"."+encodedDesKey+"."+encodedMessage;
-				System.out.println(ciphertext);
+				
+				String signature = "";
+				if(token.length()>0) {
+					Connection conn = getConnection();
+					Statement myStmt=conn.createStatement();
+								
+					String getUserQuery = "select Emri from userat where Token='"+token+"';";
+					ResultSet userSet = myStmt.executeQuery(getUserQuery);
+					String user = "";
+					if(userSet.next()) user = userSet.getString("Emri");
+					conn.close();
+					if(!user.equals("")) {
+						if(verifyJWT(token, user)) {
+							PrivateKey privateKey = importPrivateKey(user);
+							String userEncoded = encoder.encodeToString(user.getBytes("UTF-8"));
+							signature = "."+userEncoded+"."+signDocument(privateKey, encryptedMessage);
+						}						
+					}					
+				}
+				String ciphertext = encodedName +"."+encodedIV+"."+encodedDesKey+"."+encodedMessage+signature;
+				System.out.println("Ciphertext:\n"+ciphertext);
 			}		
 
 		} catch (UnsupportedEncodingException e) {
 			e.printStackTrace();
+		} catch (SQLException e) {
+			System.out.println("Gabim gjate leximit te perdoruesit nga tokeni");
 		}
-
-
 	}
 	public static void decrypt(String cipher) {
 
@@ -249,6 +239,18 @@ public class Keys {
 				byte[] decodedMessage = decoder.decode(components[3]);
 				String decryptedMessage = decryptMessage(decodedMessage, desKey);
 				System.out.println("Mesazhi: "+decryptedMessage);
+				
+				if(components.length>4) {
+					byte[] decodedSenderBytes = decoder.decode(components[4]);
+					String decodedSender = new String(decodedSenderBytes, "UTF-8");
+					System.out.println("Derguesi: "+decodedSender);
+					
+					byte[] decodedSignatureBytes = decoder.decode(components[5]);
+					
+					PublicKey publicKey = importPublicKey(decodedSender);
+					boolean validSignature = verifySignature(publicKey, decodedSignatureBytes, decodedMessage);
+					System.out.println("Nenshkrimi: "+validSignature);
+				}
 			}
 
 		} catch (UnsupportedEncodingException e) {
@@ -257,7 +259,7 @@ public class Keys {
 			System.out.println("Gabim ne lexim te fajllit");
 		}
 	}
-	public static void encrypt(String name, String message, String filename) {
+	public static void encrypt(String name, String message, String filename, String token) {
 		byte[] iv = generateRandom();
 		SecretKey desKey = generateDESKey();
 
@@ -277,7 +279,25 @@ public class Keys {
 				byte[] encryptedMessage = encryptMessage(message, desKey);
 				String encodedMessage = encoder.encodeToString(encryptedMessage);
 
-				String ciphertext = encodedName +"."+encodedIV+"."+encodedDesKey+"."+encodedMessage;
+				String signature = "";
+				if(token.length()>0) {
+					Connection conn = getConnection();
+					Statement myStmt=conn.createStatement();
+								
+					String getUserQuery = "select Emri from userat where Token='"+token+"';";
+					ResultSet userSet = myStmt.executeQuery(getUserQuery);
+					String user = "";
+					if(userSet.next()) user = userSet.getString("Emri");
+					conn.close();
+					if(!user.equals("")) {
+						if(verifyJWT(token, user)) {
+							PrivateKey privateKey = importPrivateKey(user);
+							String userEncoded = encoder.encodeToString(user.getBytes("UTF-8"));
+							signature = "."+userEncoded+"."+signDocument(privateKey, encryptedMessage);
+						}
+					}					
+				}
+				String ciphertext = encodedName +"."+encodedIV+"."+encodedDesKey+"."+encodedMessage+signature;
 
 				Writer out = new FileWriter(filename);
 				System.out.println("Mesazhi i enkriptuar u ruajt ne fajllin '"+filename);
@@ -286,6 +306,8 @@ public class Keys {
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
+		} catch (SQLException e) {
+			System.out.println("Gabim gjate leximit te tokenit");
 		}
 
 	}
@@ -364,7 +386,6 @@ public class Keys {
 	}
 	public static void InsertToDatabase(String name,String password) throws NoSuchAlgorithmException  {	
 		try {
-			System.out.println(password);
 			Statement myStmt=getConnection().createStatement();
 			
 			byte[] salt=createSalt();
@@ -773,11 +794,58 @@ public class Keys {
 		
 	}
 
-	public static void status(String token) {
-		Console console = System.console();
-		if (console == null) {
-			System.out.println("Couldn't get Console instance");
-			return;
+	public static void status(String token) {	
+		
+		try {
+			Connection conn = getConnection();
+			Statement myStmt = conn.createStatement();
+				
+			String getUserQuery = "select Emri from userat where Token='"+token+"';";
+			ResultSet userSet = myStmt.executeQuery(getUserQuery);
+			String user = "";
+			if(userSet.next()) user = userSet.getString("Emri");
+			conn.close();
+			if(!user.equals("")) {
+				boolean validToken = verifyJWT(token, user);
+				if(validToken) {
+					System.out.println("User: "+user);
+					System.out.println("Valid: Po");
+				}
+				else {
+					System.out.println("Tokeni nuk eshte valid");
+				}
+			}
+			else {
+				System.out.println("Tokeni nuk eshte valid");
+			}
+		}
+		catch (SQLException e) {
+			System.out.println("Gabim gjate leximit te tokenit");
+		}
+	}
+	
+	public static String signDocument(PrivateKey privateKey,  byte[] message) {		     
+		try {
+			Signature sign = Signature.getInstance("SHA256withRSA");
+			sign.initSign(privateKey);
+			sign.update(message);
+			byte[] bytesSigned = sign.sign();
+			return Base64.getEncoder().encodeToString(bytesSigned);
+		} catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	public static boolean verifySignature(PublicKey publicKey, byte[] bytesSigned, byte[] message) {		     
+		try {			
+			Signature sign = Signature.getInstance("SHA256withRSA");
+			sign.initVerify(publicKey);
+			sign.update(message);
+			boolean validSignature = sign.verify(bytesSigned);
+			return validSignature;
+		} catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+			System.out.println("Gabim gjate verifikimit te mesazhit");
+			return false;
 		}
 	}
 }
