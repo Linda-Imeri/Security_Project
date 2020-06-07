@@ -1,17 +1,20 @@
 # Security_Project
 
-This project offers the ability to encrypt and decrypt data through three commands:
-1. Caesar Command
-2. Permutation Command
-3. Numerical Command
+This application offers several commands ranging from encryption and decryption through
+-Ceasar Command
+-Permutation Command and
+-Numerical Command
 
-4. Create-user
-5. Delete-user
-6. Import-key
-7. Export-key
+Continuing with more advanced commands in the field of security like :
 
-8. Write-message
-9. Read-message
+-Creating users and generating the public and private key pair of the RSA algorithm
+-Saving user data in databases safely by storing hash algorithms and salting
+-Management of passwords and authentication via digital signatures
+-Delete user keys and remove all its data from the database safely without compromising other data
+-Export and import keys in various directory
+-User / password testing, issuance of a token (JWT) signed through the user's private key and for proof of signature the user's public key
+-Encrypt and decrypt messages securely using private and public key
+
 
 # Description of commands
 
@@ -33,10 +36,11 @@ This project offers the ability to encrypt and decrypt data through three comman
 4. Create-user
 
       Creates a public / private RSA pair with the names <name> .pem and <name> .pub.pem within the keys directory.
+      Also this command create user in database with hashed and salted data.
       
 5. Delete-user      
       
-      Removes all existing user keys.
+      Removes all existing user keys and also deletes user data from database.
       
 6. Import-key
 
@@ -48,29 +52,17 @@ This project offers the ability to encrypt and decrypt data through three comman
       
 8. Write-message
 
-      Writes an encrypted message dedicated to a user.
+      Writes an encrypted message dedicated to a user, we used DES alorithm to encrypt the message , also there is another option to encrypt message with token (if token generated from login command is valid) .
       
 9. Read-message
       
-      Decrypts and displays the encrypted message in the console.
+      Decrypts and displays the encrypted message in the console . If the sender / signature part of the message appears,
+then the verification of that signature will be attempted using the sender's public key
 
 
 # Instructions for using the program
-
-1. Choose one of the commands provided above
-
-2. Choose encryption or decryption
-
-3. Print data (Depending on which command you choose, data is required)
-
-4. If you need more information you can use the help command 
-
-5. Be sure to type in the correct arguments for the desired results
-
-6. Down below you have some photos of executing commands -HAVE A LOOK
-
+    We have done some screnshot on how you can use this app 
  
- # Results of program execution
  
  Caesar Encrypt
  
@@ -110,13 +102,23 @@ This project offers the ability to encrypt and decrypt data through three comman
    
    
    
-  RSA algoritem 
+  RSA algorithm
+   Create-user command execution
+   ![](images/create-user.PNG)
    
+   Delete-user command execution
+     ![](images/delete-user.PNG)
+   Login command execution
+     ![](images/login.PNG)
+   Status command execution
+      ![](images/status.PNG)
+     Write and Read Message
+        ![](images/WriteAndReadMessage.PNG)
+        
+     //Last Version
 Create-user, delete-user, write-message, read-message
-
 ![](images/cmd1.PNG)
 
 import-key and export-key
 
 ![](images/cmd2.PNG)
-
