@@ -46,6 +46,7 @@ import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Encoder;
@@ -110,7 +111,7 @@ public class Keys {
 	    return token;
 	}
 	
-	public static boolean verifyJWT(String token, String issuer) {
+	public static DecodedJWT verifyJWT(String token, String issuer) {
 		try {		    
 		    PublicKey publicKey = importPublicKey(issuer);
 	
@@ -119,9 +120,9 @@ public class Keys {
 		        .withIssuer(issuer)
 		        .build(); //Reusable verifier instance
 		    DecodedJWT jwt = verifier.verify(token);
-		    return true;
+		    return jwt;
 		}catch (JWTVerificationException exception){
-		    return false;
+		    return null;
 		}
 	}
 	
@@ -199,7 +200,7 @@ public class Keys {
 					if(userSet.next()) user = userSet.getString("Emri");
 					conn.close();
 					if(!user.equals("")) {
-						if(verifyJWT(token, user)) {
+						if(verifyJWT(token, user)!=null) {
 							PrivateKey privateKey = importPrivateKey(user);
 							String userEncoded = encoder.encodeToString(user.getBytes("UTF-8"));
 							signature = "."+userEncoded+"."+signDocument(privateKey, encryptedMessage);
@@ -208,6 +209,7 @@ public class Keys {
 				}
 				String ciphertext = encodedName +"."+encodedIV+"."+encodedDesKey+"."+encodedMessage+signature;
 				System.out.println("Ciphertext:\n"+ciphertext);
+				if(signature.equals(""))System.out.println("Dokumenti nuk u nenshkrua");
 			}		
 
 		} catch (UnsupportedEncodingException e) {
@@ -248,8 +250,16 @@ public class Keys {
 					byte[] decodedSignatureBytes = decoder.decode(components[5]);
 					
 					PublicKey publicKey = importPublicKey(decodedSender);
-					boolean validSignature = verifySignature(publicKey, decodedSignatureBytes, decodedMessage);
-					System.out.println("Nenshkrimi: "+validSignature);
+					if(publicKey!=null) {
+						boolean validSignature = verifySignature(publicKey, decodedSignatureBytes, decodedMessage);
+						String validText = "jovalid";
+						if(validSignature) validText = "valid"; 
+						System.out.println("Nenshkrimi: "+validText);
+					}
+					else {
+						System.out.println("Mungon celesi publik '"+decodedSender+"'");
+					}
+					
 				}
 			}
 
@@ -284,13 +294,13 @@ public class Keys {
 					Connection conn = getConnection();
 					Statement myStmt=conn.createStatement();
 								
-					String getUserQuery = "select Emri from userat where Token='"+token+"';";
+					String getUserQuery = "select Emri from userat where Token='"+token+"'";
 					ResultSet userSet = myStmt.executeQuery(getUserQuery);
 					String user = "";
 					if(userSet.next()) user = userSet.getString("Emri");
 					conn.close();
 					if(!user.equals("")) {
-						if(verifyJWT(token, user)) {
+						if(verifyJWT(token, user)!=null) {
 							PrivateKey privateKey = importPrivateKey(user);
 							String userEncoded = encoder.encodeToString(user.getBytes("UTF-8"));
 							signature = "."+userEncoded+"."+signDocument(privateKey, encryptedMessage);
@@ -387,7 +397,13 @@ public class Keys {
 	public static void InsertToDatabase(String name,String password) throws NoSuchAlgorithmException  {	
 		try {
 			Statement myStmt=getConnection().createStatement();
-			
+			String SQLSelect="SELECT * FROM userat WHERE Emri='"+name+"'";
+			ResultSet rs=myStmt.executeQuery(SQLSelect);
+			if(rs.next()) {
+				System.out.println("Shfrytezuesi me emrin "+name+" ekziston paraprakisht ne databaze");
+				return;
+			}
+			else {
 			byte[] salt=createSalt();
 			String saltEncoded = Base64.getEncoder().encodeToString(salt);
 			String Hashedpassword=generateHash(password,salt);
@@ -396,7 +412,7 @@ public class Keys {
 					+"(Emri,Salt,Password)"
 					+"values('"+name+"','"+saltEncoded+"','"+Hashedpassword+"')";
 			myStmt.executeUpdate(insert);
-			System.out.println("Eshte krijuar shfrytezuesi '"+name+"'");
+			System.out.println("Eshte krijuar shfrytezuesi '"+name+"'");}
 		}
 		catch(SQLException err) {
 			System.out.println(err.getMessage());
@@ -407,9 +423,16 @@ public class Keys {
 		try {
 			Statement myStmt=getConnection().createStatement();
 			String sql="delete from userat where Emri='"+name+"'";
-			myStmt.executeUpdate(sql);
-			
-			System.out.println("Eshte fshire shfrytezuesi '"+name+"'");
+			String SelectName="select Emri from userat where Emri='"+name+"'";
+			ResultSet rs=myStmt.executeQuery(SelectName);
+			if(rs.next()) {
+				myStmt.executeUpdate(sql);
+				System.out.println("Eshte fshire shfrytezuesi "+name);
+			}
+			else {
+				System.out.println("Nuk ekziston nje shfrytezues me emrin "+name);
+			}
+				
 		}
 		catch(SQLException err) {
 			System.out.println(err.getMessage());
@@ -806,10 +829,15 @@ public class Keys {
 			if(userSet.next()) user = userSet.getString("Emri");
 			conn.close();
 			if(!user.equals("")) {
-				boolean validToken = verifyJWT(token, user);
-				if(validToken) {
+				DecodedJWT validToken = verifyJWT(token, user);
+				if(validToken !=null) {
 					System.out.println("User: "+user);
 					System.out.println("Valid: Po");
+					Date expiresAt = validToken.getExpiresAt();
+					SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+
+					String expiresDateFormated= format.format(expiresAt);
+					System.out.println("Skadimi:" + expiresDateFormated);
 				}
 				else {
 					System.out.println("Tokeni nuk eshte valid");
